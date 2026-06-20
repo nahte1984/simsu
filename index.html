@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>#SimSu | v1.8</title>
+<title>#SimSu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Zen+Kaku+Gothic+Antique:wght@500&family=Shippori+Antique&display=swap" rel="stylesheet">
@@ -309,13 +309,68 @@ async function initFace(){
 }
 
 let blinkLatched = false, lastBlinkTime = 0, lastDetect = 0, lastTs = 0;
+let readyTime = 0;            // 用於開頭暖機，過濾起始假眨眼
 function checkBlink(score){
   const now = performance.now();
+  const warm = now - readyTime < 1200;
   if(score > 0.5 && !blinkLatched && now - lastBlinkTime > 220){
-    blinkLatched = true; lastBlinkTime = now; onBlink();
+    blinkLatched = true; lastBlinkTime = now;
+    if(!warm) onBlink();
   }else if(score < 0.32){
     blinkLatched = false;
   }
+}
+
+/* 把任一影像來源縮小後送進偵測器（每 ~55ms 一次） */
+const detCanvas = document.createElement('canvas');
+const detCtx = detCanvas.getContext('2d', {willReadFrequently:true});
+function processSource(src, w, h){
+  if(!faceLandmarker || !w || !h) return;
+  const now = performance.now();
+  if(now - lastDetect < 55) return;
+  lastDetect = now;
+  let ts = now;
+  if(ts <= lastTs) ts = lastTs + 1;     // MediaPipe 需要嚴格遞增的時間戳
+  lastTs = ts;
+  const TW = 320, scale = TW / w, TH = Math.round(h * scale);
+  if(detCanvas.width !== TW || detCanvas.height !== TH){ detCanvas.width = TW; detCanvas.height = TH; }
+  try{
+    detCtx.drawImage(src, 0, 0, TW, TH);
+    const res = faceLandmarker.detectForVideo(detCanvas, ts);
+    if(res.faceBlendshapes && res.faceBlendshapes.length){
+      const cats = res.faceBlendshapes[0].categories;
+      let l = 0, r = 0;
+      for(const c of cats){
+        if(c.categoryName === 'eyeBlinkLeft')  l = c.score;
+        if(c.categoryName === 'eyeBlinkRight') r = c.score;
+      }
+      checkBlink((l + r) / 2);
+    }
+  }catch(err){ /* 單張影格失敗時略過，不中斷 */ }
+}
+
+/* 偵測影格來源：優先用 MediaStreamTrackProcessor（隱藏相機也不會被凍結） */
+let detectInRAF = false;
+function startDetection(stream){
+  const track = stream.getVideoTracks()[0];
+  if(window.MediaStreamTrackProcessor && track){
+    try{
+      const reader = new MediaStreamTrackProcessor({track}).readable.getReader();
+      const pump = () => reader.read().then(({value:frame, done}) => {
+        if(done) return;
+        if(frame){ processSource(frame, frame.displayWidth, frame.displayHeight); frame.close(); }
+        pump();
+      }).catch(()=>{});
+      pump();
+      return;
+    }catch(e){ /* 不支援則往下退回 */ }
+  }
+  if('requestVideoFrameCallback' in HTMLVideoElement.prototype){
+    const cb = () => { processSource(video, video.videoWidth, video.videoHeight); video.requestVideoFrameCallback(cb); };
+    video.requestVideoFrameCallback(cb);
+    return;
+  }
+  detectInRAF = true;   // 最後退路：在主迴圈中讀取 video
 }
 
 /* ---------- Main loop ---------- */
@@ -325,24 +380,7 @@ function loop(){
   const dt = now - prevT;
   prevT = now;
 
-  if(faceLandmarker && video.readyState >= 2 && video.videoWidth > 0 && now - lastDetect > 60){
-    lastDetect = now;
-    let ts = now;
-    if(ts <= lastTs) ts = lastTs + 1;   // MediaPipe 需要嚴格遞增的時間戳
-    lastTs = ts;
-    try{
-      const res = faceLandmarker.detectForVideo(video, ts);
-      if(res.faceBlendshapes && res.faceBlendshapes.length){
-        const cats = res.faceBlendshapes[0].categories;
-        let l = 0, r = 0;
-        for(const c of cats){
-          if(c.categoryName === 'eyeBlinkLeft')  l = c.score;
-          if(c.categoryName === 'eyeBlinkRight') r = c.score;
-        }
-        checkBlink((l + r) / 2);
-      }
-    }catch(err){ /* 單一影格偵測失敗時略過，不中斷迴圈 */ }
-  }
+  if(detectInRAF && video.readyState >= 2) processSource(video, video.videoWidth, video.videoHeight);
 
   stepTears(dt);
   drawTears();
@@ -359,7 +397,15 @@ async function start(){
     return;
   }
   video.srcObject = stream;
-  await video.play();
+  try{ await video.play(); }catch(e){}
+
+  // 若支援 MediaStreamTrackProcessor，影格直接從相機軌道讀取，
+  // 相機畫面可完全移出可視範圍；否則保留極小可見以免行動瀏覽器凍結解碼。
+  if(window.MediaStreamTrackProcessor){
+    video.style.opacity = '0';
+    video.style.top = '-100px';
+    video.style.left = '-100px';
+  }
 
   splash.style.display = 'none';
   app.style.display = 'flex';
@@ -370,6 +416,9 @@ async function start(){
 
   try{ await initFace(); }
   catch(e){ console.error('FaceLandmarker init failed:', e); }
+
+  startDetection(stream);
+  readyTime = performance.now();
 
   // 確保 Shippori Antique 已載入，避免標點用後備字型先閃到角落
   try{
