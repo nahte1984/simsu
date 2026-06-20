@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>#SimSu | v1.0</title>
+<title>#SimSu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Zen+Kaku+Gothic+Antique:wght@500&family=Shippori+Antique&display=swap" rel="stylesheet">
@@ -42,6 +42,7 @@
     background:var(--red);
     display:flex;align-items:center;justify-content:space-between;
     overflow:hidden;
+    border-bottom:1.5px solid #000;
   }
   #header .left{
     font-family:"Zen Kaku Gothic Antique",sans-serif;
@@ -50,7 +51,7 @@
   }
   #header .right{
     font-family:"Space Grotesk",sans-serif;
-    font-weight:400;font-size:34px;letter-spacing:-5px;color:#000;
+    font-weight:400;font-size:34px;letter-spacing:0;color:#000;
     margin-right:10px;line-height:1;
   }
 
@@ -59,6 +60,7 @@
     flex:0 0 60px;height:60px;width:100%;
     background:var(--cyan);
     position:relative;overflow:hidden;
+    border-bottom:1.5px solid #000;
   }
   #ticker .msg{
     position:absolute;top:0;left:0;height:60px;line-height:60px;white-space:nowrap;
@@ -89,8 +91,25 @@
   #eyes{
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     display:flex;align-items:center;justify-content:center;
-    filter:blur(8px);z-index:3;pointer-events:none;
+    z-index:3;pointer-events:none;
   }
+  .stage-hidden{visibility:hidden;}
+
+  /* loading */
+  #loading{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    z-index:4;
+    font-family:"Space Grotesk",sans-serif;
+    font-weight:500;font-size:26px;letter-spacing:0;color:#000;
+    white-space:nowrap;
+  }
+  #loading .dots span{opacity:0;}
+  #loading .dots span:nth-child(1){animation:dot1 1.8s steps(1,end) infinite;}
+  #loading .dots span:nth-child(2){animation:dot2 1.8s steps(1,end) infinite;}
+  #loading .dots span:nth-child(3){animation:dot3 1.8s steps(1,end) infinite;}
+  @keyframes dot1{0%,14%{opacity:0}15%,84%{opacity:1}85%,100%{opacity:0}}
+  @keyframes dot2{0%,34%{opacity:0}35%,84%{opacity:1}85%,100%{opacity:0}}
+  @keyframes dot3{0%,54%{opacity:0}55%,84%{opacity:1}85%,100%{opacity:0}}
   .eye{position:relative;width:140px;height:182px;}
   .eye.leftEye{transform:scaleX(-1);margin-left:10px;}
   .eye.rightEye{margin-right:10px;}
@@ -120,9 +139,10 @@
   </div>
 
   <div id="stage">
-    <div id="bigChar">很</div>
+    <div id="loading">loading<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
+    <div id="bigChar" class="stage-hidden">很</div>
     <canvas id="tears"></canvas>
-    <div id="eyes">
+    <div id="eyes" class="stage-hidden">
       <div class="eye leftEye">
         <img src="eye/eye01.svg" class="on" alt="">
         <img src="eye/eye02.svg" alt="">
@@ -213,8 +233,10 @@ function makeTear(){
     g:  0.035 + Math.random()*0.11                      // slightly different gravity each
   };
 }
+let ready = false;
 let spawnAcc = 0;
 function stepTears(dt){
+  if(!ready) return;
   spawnAcc += dt;
   while(spawnAcc > 110 && tears.length < 80){
     spawnAcc -= 110;
@@ -328,11 +350,17 @@ async function start(){
   app.style.display = 'flex';
   resize();
 
+  prevT = performance.now();
+  requestAnimationFrame(loop);
+
   try{ await initFace(); }
   catch(e){ console.error('FaceLandmarker init failed:', e); }
 
-  prevT = performance.now();
-  requestAnimationFrame(loop);
+  // functionality ready -> reveal eyes + big char, remove loading
+  document.getElementById('loading').remove();
+  document.getElementById('bigChar').classList.remove('stage-hidden');
+  document.getElementById('eyes').classList.remove('stage-hidden');
+  ready = true;
 }
 splash.addEventListener('click', start, {once:true});
 </script>
