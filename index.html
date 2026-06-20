@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>#SimSu | v1.1</title>
+<title>#SimSu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Zen+Kaku+Gothic+Antique:wght@500&family=Shippori+Antique&display=swap" rel="stylesheet">
@@ -51,7 +51,7 @@
   }
   #header .right{
     font-family:"Space Grotesk",sans-serif;
-    font-weight:400;font-size:34px;letter-spacing:0;color:#000;
+    font-weight:400;font-size:33px;letter-spacing:-2px;color:#000;
     margin-right:10px;line-height:1;
   }
 
@@ -87,11 +87,11 @@
     paint-order:stroke fill;
     z-index:1;user-select:none;white-space:nowrap;
   }
-  #tears{position:absolute;inset:0;z-index:2;pointer-events:none;}
+  #tears{position:absolute;inset:0;z-index:3;pointer-events:none;}
   #eyes{
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    display:flex;align-items:center;justify-content:center;
-    z-index:3;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;gap:30px;
+    z-index:2;pointer-events:none;
   }
   .stage-hidden{visibility:hidden;}
 
@@ -225,8 +225,8 @@ function makeTear(){
   const side = Math.random() < 0.5 ? -1 : 1;           // under left or right eye
   const r = (13 + Math.random()*21) / 2;               // diameter 13~34
   return {
-    x: cx + side*(38 + Math.random()*34) + (Math.random()*16 - 8),
-    y: cy + 70 + Math.random()*24,
+    x: cx + side*(78 + Math.random()*34) + (Math.random()*16 - 8),
+    y: cy + 60 + Math.random()*24,
     r,
     vx: (Math.random()*0.6 - 0.3),                      // slight horizontal offset
     vy: 0.4 + Math.random()*0.7,
