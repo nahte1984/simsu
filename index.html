@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>#SimSu | v1.5</title>
+<title>#SimSu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Zen+Kaku+Gothic+Antique:wght@500&family=Shippori+Antique&display=swap" rel="stylesheet">
@@ -90,6 +90,10 @@
     paint-order:stroke fill;
     z-index:1;user-select:none;white-space:nowrap;
   }
+  #bigChar #glyph{display:inline-block;}
+  /* 全形標點在字面左下角，平移讓其視覺置中 */
+  #bigChar #glyph.comma{transform:translate(calc(0.26em + 41px),-0.24em);}
+  #bigChar #glyph.period{transform:translate(calc(0.26em + 12px),-0.24em);}
   #tears{position:absolute;inset:0;z-index:3;pointer-events:none;}
   #eyes{
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
@@ -136,7 +140,7 @@
 
   <div id="stage">
     <div id="loading">loading...</div>
-    <div id="bigChar" class="stage-hidden">很</div>
+    <div id="bigChar" class="stage-hidden"><span id="glyph">很</span></div>
     <canvas id="tears"></canvas>
     <div id="eyes" class="stage-hidden">
       <div class="eye leftEye">
@@ -166,12 +170,19 @@ const stage   = document.getElementById('stage');
 const eyesEl  = document.getElementById('eyes');
 
 /* ---------- Character cycling ---------- */
-const CHARS = [...'很濃建議與眼淚一起稀釋使用'];
+const CHARS = [...'很濃，建議與眼淚一起稀釋使用。'];
+const glyph = document.getElementById('glyph');
 let charIdx = 0;
-bigChar.textContent = CHARS[0];
+function showChar(i){
+  const c = CHARS[i];
+  glyph.textContent = c;
+  glyph.classList.toggle('comma',  c === '，');
+  glyph.classList.toggle('period', c === '。');
+}
+showChar(0);
 function advanceChar(){
   charIdx = (charIdx + 1) % CHARS.length;
-  bigChar.textContent = CHARS[charIdx];
+  showChar(charIdx);
   bigChar.animate(
     [{transform:'translate(-50%,calc(-50% - 15px)) scale(0.55)',opacity:0},
      {transform:'translate(-50%,calc(-50% - 15px)) scale(1)',opacity:1}],
