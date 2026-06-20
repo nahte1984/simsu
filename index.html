@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>#SimSu | v1.6</title>
+<title>#SimSu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Zen+Kaku+Gothic+Antique:wght@500&family=Shippori+Antique&display=swap" rel="stylesheet">
@@ -15,7 +15,8 @@
     --tear:#C3FDFF;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
-  html,body{height:100%;width:100%;overflow:hidden;background:var(--purple);}
+  html,body{height:100%;width:100%;overflow:hidden;background:var(--purple);
+    touch-action:none;-ms-touch-action:none;}
   body{font-family:"Space Grotesk",sans-serif;-webkit-font-smoothing:antialiased;}
   #video{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-10px;left:-10px;}
 
@@ -363,6 +364,12 @@ async function start(){
   try{ await initFace(); }
   catch(e){ console.error('FaceLandmarker init failed:', e); }
 
+  // 確保 Shippori Antique 已載入，避免標點用後備字型先閃到角落
+  try{
+    await document.fonts.load("400 360px 'Shippori Antique'", '很濃，建議與眼淚一起稀釋使用。');
+    await document.fonts.ready;
+  }catch(e){}
+
   // functionality ready -> reveal eyes + big char, remove loading
   document.getElementById('loading').remove();
   document.getElementById('bigChar').classList.remove('stage-hidden');
@@ -370,6 +377,20 @@ async function start(){
   ready = true;
 }
 splash.addEventListener('click', start, {once:true});
+
+/* 停用 iOS / Android 兩指縮放與雙擊放大 */
+document.addEventListener('gesturestart',  e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend',    e => e.preventDefault());
+document.addEventListener('touchmove', e => {
+  if(e.touches.length > 1) e.preventDefault();
+}, {passive:false});
+let lastTouch = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if(now - lastTouch <= 300) e.preventDefault();   // 阻止雙擊放大
+  lastTouch = now;
+}, {passive:false});
 </script>
 </body>
 </html>
