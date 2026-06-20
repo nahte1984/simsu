@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>#SimSu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&family=Zen+Kaku+Gothic+Antique:wght@500&family=Shippori+Antique&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#7053B5;
+    --red:#FF3F34;
+    --cyan:#1BAAC5;
+    --tear:#C3FDFF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;width:100%;overflow:hidden;background:var(--purple);}
+  body{font-family:"Space Grotesk",sans-serif;-webkit-font-smoothing:antialiased;}
+  #video{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-10px;left:-10px;}
+
+  /* ---------- Splash ---------- */
+  #splash{
+    position:fixed;inset:0;
+    background:var(--purple);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    cursor:pointer;z-index:50;
+  }
+  #splash .icon{width:135px;height:135px;display:block;}
+  #splash .label{
+    margin-top:20px;
+    font-family:"Space Grotesk",sans-serif;
+    font-weight:500;font-size:26px;letter-spacing:0;color:#000;
+  }
+
+  /* ---------- App ---------- */
+  #app{position:fixed;inset:0;display:none;flex-direction:column;}
+
+  /* Region 1 : header */
+  #header{
+    flex:0 0 60px;height:60px;width:100%;
+    background:var(--red);
+    display:flex;align-items:center;justify-content:space-between;
+    overflow:hidden;
+  }
+  #header .left{
+    font-family:"Zen Kaku Gothic Antique",sans-serif;
+    font-weight:500;font-size:32px;letter-spacing:0;color:#000;
+    margin-left:10px;line-height:1;
+  }
+  #header .right{
+    font-family:"Space Grotesk",sans-serif;
+    font-weight:400;font-size:34px;letter-spacing:-5px;color:#000;
+    margin-right:10px;line-height:1;
+  }
+
+  /* Region 2 : marquee */
+  #ticker{
+    flex:0 0 60px;height:60px;width:100%;
+    background:var(--cyan);
+    position:relative;overflow:hidden;
+  }
+  #ticker .msg{
+    position:absolute;top:0;left:0;height:60px;line-height:60px;white-space:nowrap;
+    font-family:"Zen Kaku Gothic Antique",sans-serif;
+    font-weight:500;font-size:32px;letter-spacing:0;color:#000;
+    will-change:transform;
+    animation:slide 13s linear infinite;
+  }
+  @keyframes slide{
+    0%{transform:translateX(100vw);}
+    100%{transform:translateX(-100%);}
+  }
+
+  /* Region 3 : stage */
+  #stage{
+    flex:1 1 auto;position:relative;overflow:hidden;background:var(--purple);
+  }
+  #bigChar{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    font-family:"Shippori Antique",serif;
+    font-size:360px;line-height:1;
+    color:var(--tear);
+    -webkit-text-stroke:4px #FFFFFF;
+    paint-order:stroke fill;
+    z-index:1;user-select:none;white-space:nowrap;
+  }
+  #tears{position:absolute;inset:0;z-index:2;pointer-events:none;}
+  #eyes{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    display:flex;align-items:center;justify-content:center;
+    filter:blur(8px);z-index:3;pointer-events:none;
+  }
+  .eye{position:relative;width:140px;height:182px;}
+  .eye.leftEye{transform:scaleX(-1);margin-left:10px;}
+  .eye.rightEye{margin-right:10px;}
+  .eye img{
+    position:absolute;top:0;left:0;width:140px;height:182px;
+    opacity:0;
+  }
+  .eye img.on{opacity:1;}
+</style>
+</head>
+<body>
+<video id="video" playsinline muted></video>
+
+<div id="splash">
+  <img class="icon" src="icon.svg" alt="">
+  <div class="label">#SimSu</div>
+</div>
+
+<div id="app">
+  <div id="header">
+    <div class="left">#心事</div>
+    <div class="right">Tracy J.</div>
+  </div>
+
+  <div id="ticker">
+    <div class="msg">刺激性太高會灼傷，大概稀釋到5%比較安全</div>
+  </div>
+
+  <div id="stage">
+    <div id="bigChar">很</div>
+    <canvas id="tears"></canvas>
+    <div id="eyes">
+      <div class="eye leftEye">
+        <img src="eye/eye01.svg" class="on" alt="">
+        <img src="eye/eye02.svg" alt="">
+        <img src="eye/eye03.svg" alt="">
+        <img src="eye/eye04.svg" alt="">
+      </div>
+      <div class="eye rightEye">
+        <img src="eye/eye01.svg" class="on" alt="">
+        <img src="eye/eye02.svg" alt="">
+        <img src="eye/eye03.svg" alt="">
+        <img src="eye/eye04.svg" alt="">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12";
+
+const splash  = document.getElementById('splash');
+const app     = document.getElementById('app');
+const video   = document.getElementById('video');
+const bigChar = document.getElementById('bigChar');
+const stage   = document.getElementById('stage');
+const eyesEl  = document.getElementById('eyes');
+
+/* ---------- Character cycling ---------- */
+const CHARS = [...'很濃建議與眼淚一起稀釋使用'];
+let charIdx = 0;
+bigChar.textContent = CHARS[0];
+function advanceChar(){
+  charIdx = (charIdx + 1) % CHARS.length;
+  bigChar.textContent = CHARS[charIdx];
+  bigChar.animate(
+    [{transform:'translate(-50%,-50%) scale(0.55)',opacity:0},
+     {transform:'translate(-50%,-50%) scale(1)',opacity:1}],
+    {duration:140, easing:'cubic-bezier(.2,.85,.25,1)'}
+  );
+}
+
+/* ---------- Eye blink frames ---------- */
+const eyeFrames = [...document.querySelectorAll('.eye')].map(
+  e => [...e.querySelectorAll('img')]
+);
+function setEyeFrame(i){
+  eyeFrames.forEach(imgs => imgs.forEach((img,k)=> img.classList.toggle('on', k===i)));
+}
+let blinkTimer = null;
+function playBlink(){
+  const seq = [0,1,2,3,3,2,1,0];
+  let k = 0;
+  clearInterval(blinkTimer);
+  blinkTimer = setInterval(()=>{
+    setEyeFrame(seq[k]);
+    k++;
+    if(k >= seq.length){ clearInterval(blinkTimer); setEyeFrame(0); }
+  }, 42);
+}
+
+function onBlink(){ playBlink(); advanceChar(); }
+
+/* ---------- Tears ---------- */
+const canvas = document.getElementById('tears');
+const ctx = canvas.getContext('2d');
+let cx = 0, cy = 0;
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = stage.clientWidth  * dpr;
+  canvas.height = stage.clientHeight * dpr;
+  canvas.style.width  = stage.clientWidth + 'px';
+  canvas.style.height = stage.clientHeight + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cx = stage.clientWidth / 2;
+  cy = stage.clientHeight / 2;
+}
+window.addEventListener('resize', resize);
+
+const tears = [];
+function makeTear(){
+  const side = Math.random() < 0.5 ? -1 : 1;           // under left or right eye
+  const r = (13 + Math.random()*21) / 2;               // diameter 13~34
+  return {
+    x: cx + side*(38 + Math.random()*34) + (Math.random()*16 - 8),
+    y: cy + 70 + Math.random()*24,
+    r,
+    vx: (Math.random()*0.6 - 0.3),                      // slight horizontal offset
+    vy: 0.4 + Math.random()*0.7,
+    g:  0.035 + Math.random()*0.11                      // slightly different gravity each
+  };
+}
+let spawnAcc = 0;
+function stepTears(dt){
+  spawnAcc += dt;
+  while(spawnAcc > 110 && tears.length < 80){
+    spawnAcc -= 110;
+    tears.push(makeTear());
+  }
+  const h = stage.clientHeight;
+  for(let i = tears.length - 1; i >= 0; i--){
+    const t = tears[i];
+    t.vy += t.g;
+    t.y  += t.vy;
+    t.x  += t.vx;
+    if(t.y - t.r > h + 4) tears.splice(i,1);
+  }
+}
+function drawTears(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // black outlines first (so overlapping white fills hide the seam)
+  ctx.fillStyle = '#000';
+  for(const t of tears){
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r + 1.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // white fills on top -> union outline, no stroke at intersections
+  ctx.fillStyle = '#fff';
+  for(const t of tears){
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+/* ---------- Blink detection (MediaPipe FaceLandmarker) ---------- */
+let faceLandmarker = null;
+async function initFace(){
+  const fileset = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm"
+  );
+  try{
+    faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
+      baseOptions:{
+        modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        delegate:"GPU"
+      },
+      outputFaceBlendshapes:true,
+      runningMode:"VIDEO",
+      numFaces:1
+    });
+  }catch(e){
+    faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
+      baseOptions:{
+        modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        delegate:"CPU"
+      },
+      outputFaceBlendshapes:true,
+      runningMode:"VIDEO",
+      numFaces:1
+    });
+  }
+}
+
+let blinkLatched = false, lastBlinkTime = 0, lastVideoTime = -1;
+function checkBlink(score){
+  const now = performance.now();
+  if(score > 0.5 && !blinkLatched && now - lastBlinkTime > 220){
+    blinkLatched = true; lastBlinkTime = now; onBlink();
+  }else if(score < 0.32){
+    blinkLatched = false;
+  }
+}
+
+/* ---------- Main loop ---------- */
+let prevT = performance.now();
+function loop(){
+  const now = performance.now();
+  const dt = now - prevT;
+  prevT = now;
+
+  if(faceLandmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime){
+    lastVideoTime = video.currentTime;
+    const res = faceLandmarker.detectForVideo(video, now);
+    if(res.faceBlendshapes && res.faceBlendshapes.length){
+      const cats = res.faceBlendshapes[0].categories;
+      let l = 0, r = 0;
+      for(const c of cats){
+        if(c.categoryName === 'eyeBlinkLeft')  l = c.score;
+        if(c.categoryName === 'eyeBlinkRight') r = c.score;
+      }
+      checkBlink((l + r) / 2);
+    }
+  }
+
+  stepTears(dt);
+  drawTears();
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Start ---------- */
+async function start(){
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+  }catch(e){
+    alert('需要前鏡頭權限才能開始互動。\n請允許相機存取後重新整理頁面。');
+    return;
+  }
+  video.srcObject = stream;
+  await video.play();
+
+  splash.style.display = 'none';
+  app.style.display = 'flex';
+  resize();
+
+  try{ await initFace(); }
+  catch(e){ console.error('FaceLandmarker init failed:', e); }
+
+  prevT = performance.now();
+  requestAnimationFrame(loop);
+}
+splash.addEventListener('click', start, {once:true});
+</script>
+</body>
+</html>
